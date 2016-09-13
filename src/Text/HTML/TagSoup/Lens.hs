@@ -28,20 +28,15 @@ data Element str = Element
 makeLenses ''Element
 
 class AsElement a where
-  _Element :: Prism' (a str) (Element str)
+  elt :: Prism' (a str) (Element str)
 
 instance AsElement Node where
-  _Element = prism' Elt $ \case
+  elt = prism' Elt $ \case
     Elt e -> Just e
     T   _ -> Nothing
 
 instance AsElement Element where
-  _Element = prism' id (Just . id)
-
-element :: Prism' (Node str) (Element str)
-element = prism' Elt $ \case
-  Elt e -> Just e
-  _     -> Nothing
+  elt = prism' id (Just . id)
 
 attr :: (Hashable str, Eq str) => str -> Lens' (Element str) (Maybe [str])
 attr name = attributes . at name
@@ -101,18 +96,16 @@ named :: Fold str a -> Traversal' (Element str) (Element str)
 named fld = filtered . has $ name . fld
 
 instance Plated (Node str) where
-  plate = element . children . traverse
+  plate = elt . children . traverse
 
 instance Plated (Element str) where
-  plate = children . traverse . element
+  plate = children . traverse . elt
 
 allNamed :: Fold str b -> Fold (Node str) (Element str)
-allNamed fld = element . to universe . traverse . named fld
+allNamed fld = elt . to universe . traverse . named fld
 
 allAttributed :: Fold (HashMap str [str]) b -> Fold (Node str) (Element str)
-allAttributed fld = element . to universe . traverse . attributed fld
-
-allElts f = element . to universe . traverse . filtered . has f
+allAttributed fld = elt . to universe . traverse . attributed fld
 
 class HasContents e str | e -> str where
   -- | A @'Traversal'@ targetting all the immediate textual children of a
@@ -125,7 +118,7 @@ class HasContents e str | e -> str where
   contents :: Traversal' e str
 
 instance HasContents (Node str) str where
-  contents = _Element . contents
+  contents = elt . contents
 
 instance HasContents (Element str) str where
   contents = children . traverse . text
@@ -133,5 +126,5 @@ instance HasContents (Element str) str where
 allContents :: (HasContents e str, Plated e) => Fold e str
 allContents = to universe . traverse . contents
 
-elements :: Fold (Node str) (Element str)
-elements = element . to universe . folded
+allElements :: AsElement e => Fold (e str) (Element str)
+allElements = elt . to universe . folded
